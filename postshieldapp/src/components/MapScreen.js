@@ -4,8 +4,6 @@ import {
   Platform,
   StyleSheet,
   Text,
-  ScrollView,
-  Image,
   Button,
   Dimensions,
   PermissionsAndroid,
@@ -13,8 +11,11 @@ import {
 } from "react-native";
 import Constants from "expo-constants";
 
+// Dynamic import variables for maps
+let MapView, Marker;
+
 // For web maps (using react-leaflet) - Only load for the web platform
-let MapContainer, TileLayer, Marker, useMapEvents;
+let MapContainer, TileLayer, useMapEvents;
 
 if (Platform.OS === "web") {
   MapContainer = require("react-leaflet").MapContainer;
@@ -24,28 +25,10 @@ if (Platform.OS === "web") {
   require("leaflet/dist/leaflet.css");
 }
 
-let MapView = null; // MapView for mobile use only
-
-// Fetch images from Unsplash
-const fetchCityImages = async (city, setCityImages) => {
-  const UNSPLASH_API_KEY = Constants.manifest.extra.UNSPLASH_API_KEY;
-  const url = `https://api.unsplash.com/search/photos?query=${city}&client_id=${UNSPLASH_API_KEY}`;
-
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error("Failed to fetch images");
-    const data = await response.json();
-    const images = data.results.map((image) => image.urls.small);
-    setCityImages(images);
-  } catch (error) {
-    console.error("Error fetching images from Unsplash:", error);
-  }
-};
-
 export default function MapScreen() {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [locationData, setLocationData] = useState(null);
-  const [cityImages, setCityImages] = useState([]);
+  const [mapLoaded, setMapLoaded] = useState(false); // State to track if MapView is loaded for mobile
 
   // Fetch geolocation data using Nominatim API
   const fetchLocationData = async (lat, lng) => {
@@ -63,9 +46,6 @@ export default function MapScreen() {
         country,
         address,
       });
-
-      // Fetch city images
-      fetchCityImages(city, setCityImages);
     } catch (error) {
       console.error("Error fetching location data:", error);
     }
@@ -97,12 +77,14 @@ export default function MapScreen() {
     }
   };
 
-  // Load react-native-maps dynamically for mobile and request permission
+  // Dynamically load react-native-maps only for mobile platforms
   useEffect(() => {
     if (Platform.OS !== "web") {
       import("react-native-maps").then((module) => {
         MapView = module.default;
+        Marker = module.Marker;
         requestLocationPermission(); // Request permission on mobile load
+        setMapLoaded(true); // Mark map as loaded
       });
     }
   }, []);
@@ -124,19 +106,7 @@ export default function MapScreen() {
               {locationData.city}, {locationData.country}
             </Text>
             <Text style={styles.subtitle}>{locationData.address}</Text>
-            <ScrollView horizontal>
-              {cityImages.length > 0 ? (
-                cityImages.map((image, index) => (
-                  <Image
-                    key={index}
-                    source={{ uri: image }}
-                    style={styles.carouselImage}
-                  />
-                ))
-              ) : (
-                <Text>No images available for this city</Text>
-              )}
-            </ScrollView>
+            {/* Only show post button when location is selected */}
             <Button title="Post" onPress={() => alert("Post button clicked")} />
           </>
         ) : (
@@ -176,6 +146,7 @@ export default function MapScreen() {
           </MapContainer>
         ) : (
           // Mobile version using react-native-maps
+          mapLoaded &&
           MapView && (
             <View style={styles.mapContainer}>
               <MapView
@@ -188,9 +159,7 @@ export default function MapScreen() {
                 }}
                 onPress={onMapPress}
               >
-                {selectedLocation && (
-                  <MapView.Marker coordinate={selectedLocation} />
-                )}
+                {selectedLocation && <Marker coordinate={selectedLocation} />}
               </MapView>
             </View>
           )
@@ -251,10 +220,5 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     marginBottom: 20,
-  },
-  carouselImage: {
-    width: 300,
-    height: 200,
-    marginRight: 10,
   },
 });
