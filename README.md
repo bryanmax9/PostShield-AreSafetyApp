@@ -27,3 +27,10 @@ Installing Icons:
 npm install react-native-vector-icons
 
 ```
+
+Dot Environment:
+
+```bash
+npm install react-native-dotenv
+
+```
