@@ -10,18 +10,20 @@ import {
   Alert,
 } from "react-native";
 import Constants from "expo-constants";
+import { Image } from "react-native";
 
 // Dynamic import variables for maps
 let MapView, Marker;
 
 // For web maps (using react-leaflet) - Only load for the web platform
-let MapContainer, TileLayer, useMapEvents;
+let MapContainer, TileLayer, useMapEvents, L;
 
 if (Platform.OS === "web") {
   MapContainer = require("react-leaflet").MapContainer;
   TileLayer = require("react-leaflet").TileLayer;
   Marker = require("react-leaflet").Marker;
   useMapEvents = require("react-leaflet").useMapEvents;
+  L = require("leaflet"); // Import Leaflet for web
   require("leaflet/dist/leaflet.css");
 }
 
@@ -137,6 +139,11 @@ export default function MapScreen() {
                   selectedLocation.latitude,
                   selectedLocation.longitude,
                 ]}
+                icon={L.icon({
+                  iconUrl: "/assets/map.png", // Web: Use a relative path from the root directory for web
+                  iconSize: [38, 38], // Size of the icon
+                  iconAnchor: [19, 38], // Anchor point of the icon
+                })}
               />
             )}
             <MapClickHandler
@@ -159,7 +166,14 @@ export default function MapScreen() {
                 }}
                 onPress={onMapPress}
               >
-                {selectedLocation && <Marker coordinate={selectedLocation} />}
+                {selectedLocation && (
+                  <Marker coordinate={selectedLocation}>
+                    <Image
+                      source={require("../../assets/map.png")}
+                      style={{ width: 30, height: 30 }} // Adjust width and height here
+                    />
+                  </Marker>
+                )}
               </MapView>
             </View>
           )
