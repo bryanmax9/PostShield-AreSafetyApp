@@ -17,6 +17,8 @@ import * as ImagePicker from "expo-image-picker"; // Import image picker
 import { db, storage } from "../firebaseConfig"; // Import Firestore and Storage
 import { collection, addDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getAuth } from "firebase/auth"; // Import Firebase Auth
+import { doc, updateDoc, arrayUnion } from "firebase/firestore"; // For updating Firestore
 
 // Dynamic import variables for maps
 let MapView, Marker;
@@ -175,8 +177,16 @@ export default function MapScreen() {
     }
   };
 
-  // Handle creating a new post
+  // Handle creating a new post for the signed-in user
   const handleCreatePost = async () => {
+    const auth = getAuth(); // Get Firebase Auth instance
+    const user = auth.currentUser; // Get the current user
+
+    if (!user) {
+      Alert.alert("Error", "No user is signed in");
+      return;
+    }
+
     if (description && image && selectedLocation) {
       try {
         // Upload image to Firebase Storage
@@ -191,14 +201,21 @@ export default function MapScreen() {
         // Get the download URL after upload
         const imageUrl = await getDownloadURL(imageRef);
 
-        // Add the post with the selected location and uploaded image URL
-        await addDoc(collection(db, "posts"), {
+        // Prepare the post object
+        const newPost = {
           location: locationData.address || "Unknown Location",
           description,
           imageUrl,
           latitude: selectedLocation.latitude,
           longitude: selectedLocation.longitude,
+        };
+
+        // Add the post to the authenticated user's 'posts' array in Firestore
+        const userDoc = doc(db, "users", user.uid);
+        await updateDoc(userDoc, {
+          posts: arrayUnion(newPost), // Append new post to the 'posts' array
         });
+
         Alert.alert("Success", "Post added successfully!");
         setModalVisible(false); // Close modal after adding post
         setDescription(""); // Reset input fields

@@ -85,3 +85,9 @@ Install Firebase asnc o prersis User Sessions:
 npm install @react-native-async-storage/async-storage
 
 ```
+
+Installing Icons for UI of the WebApp:
+
+```bash
+npm install react-native-vector-icons
+```

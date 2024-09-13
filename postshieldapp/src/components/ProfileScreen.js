@@ -2,16 +2,17 @@ import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
-  StyleSheet,
-  Image,
-  Button,
   FlatList,
+  Image,
+  StyleSheet,
   ActivityIndicator,
+  Button,
   Alert,
+  Platform,
 } from "react-native";
 import { auth, db } from "../firebaseConfig"; // Import Firebase auth and Firestore
 import { signOutUser } from "../authService"; // Import the sign out function
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore"; // Import Firestore functions
 
 export default function ProfileScreen({ navigation }) {
   const [user, setUser] = useState(null); // State for the logged-in user
@@ -26,16 +27,15 @@ export default function ProfileScreen({ navigation }) {
 
       // Fetch user's posts from Firestore
       if (currentUser) {
-        const q = query(
-          collection(db, "posts"),
-          where("userId", "==", currentUser.uid)
-        );
-        const querySnapshot = await getDocs(q);
-        const userPosts = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setPosts(userPosts);
+        const userDocRef = doc(db, "users", currentUser.uid);
+        const userDocSnapshot = await getDoc(userDocRef);
+
+        if (userDocSnapshot.exists()) {
+          const userData = userDocSnapshot.data();
+          if (userData.posts && userData.posts.length > 0) {
+            setPosts(userData.posts); // Set user's posts
+          }
+        }
       }
 
       setLoading(false); // Stop the loading indicator
@@ -57,19 +57,36 @@ export default function ProfileScreen({ navigation }) {
 
   // Render the user's posts in a modern block layout
   const renderPost = ({ item }) => (
-    <View style={styles.postBlock}>
-      <Text style={styles.postText}>{item.description}</Text>
-      <Text style={styles.postLocation}>{item.location}</Text>
+    <View style={styles.postContainer}>
+      <Text style={styles.title}>{item.location}</Text>
+      <Text style={styles.description}>{item.description}</Text>
+      {item.imageUrl && (
+        <Image
+          source={{ uri: item.imageUrl }}
+          style={styles.postImage}
+          resizeMode="cover"
+        />
+      )}
     </View>
   );
+
+  // Load more posts when the user scrolls down
+  const handleLoadMore = () => {
+    if (!loading && posts.length > 0) {
+      setLoading(true);
+      // Simulate loading more content or fetching additional posts
+      setTimeout(() => {
+        setLoading(false); // Simulate end of load more action
+      }, 1500); // Adjust delay if needed
+    }
+  };
 
   return (
     <View style={styles.container}>
       {loading ? (
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color="#0079d3" />
       ) : (
         <>
-          {/* Profile Section */}
           {user && (
             <View style={styles.profileContainer}>
               <Image
@@ -82,25 +99,29 @@ export default function ProfileScreen({ navigation }) {
                 {user.displayName || "Username"}
               </Text>
               <Text style={styles.email}>{user.email}</Text>
+
+              {/* Sign-Out Button */}
               <Button
                 title="Sign Out"
                 onPress={handleSignOut}
                 color="#0079d3"
               />
 
-              {/* Dividing Line */}
               <View style={styles.divider} />
+
+              <Text style={styles.sectionTitle}>Your Posts</Text>
             </View>
           )}
 
-          {/* User's Posts */}
-          <Text style={styles.sectionTitle}>Your Posts</Text>
           <FlatList
             data={posts}
             renderItem={renderPost}
-            keyExtractor={(item) => item.id}
-            style={styles.postsList}
-            contentContainerStyle={styles.postsContent}
+            keyExtractor={(item, index) => index.toString()} // Use index as key if no unique id
+            style={styles.flatListContainer}
+            contentContainerStyle={styles.flatListContent}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.01} // Smaller threshold to delay the update
+            ListFooterComponent={<View style={{ height: 200 }} />} // Add more space to indicate scrolling
             ListEmptyComponent={() => (
               <Text style={styles.noPostsText}>
                 You haven't posted anything yet.
@@ -121,7 +142,6 @@ const styles = StyleSheet.create({
   },
   profileContainer: {
     alignItems: "center",
-    justifyContent: "center",
     marginBottom: 20,
   },
   profileImage: {
@@ -155,37 +175,45 @@ const styles = StyleSheet.create({
     color: "#333",
     alignSelf: "flex-start",
   },
-  postsList: {
-    width: "100%",
+  flatListContainer: {
+    flex: 1,
   },
-  postsContent: {
-    alignItems: "center",
-    paddingBottom: 20,
+  flatListContent: {
+    paddingBottom: 100,
+    paddingHorizontal: Platform.OS === "web" ? "20%" : "5%",
   },
-  postBlock: {
+  postContainer: {
+    marginBottom: 20,
+    padding: 20,
     backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 10,
-    width: "100%",
-    marginBottom: 15,
+    borderRadius: 8,
     shadowColor: "#000",
     shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    borderWidth: 1,
+    borderColor: "#ddd",
+    width: Platform.OS === "web" ? "80%" : "100%",
+    alignSelf: "center",
   },
-  postText: {
+  title: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  description: {
     fontSize: 16,
-    color: "#333",
-    marginBottom: 5,
+    marginBottom: 10,
   },
-  postLocation: {
-    fontSize: 14,
-    color: "#888",
+  postImage: {
+    height: 200,
+    borderRadius: 8,
+    width: "100%",
   },
   noPostsText: {
     fontSize: 16,
     color: "#888",
-    marginTop: 20,
     textAlign: "center",
+    marginTop: 20,
   },
 });
