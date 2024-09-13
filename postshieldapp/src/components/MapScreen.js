@@ -8,14 +8,20 @@ import {
   Dimensions,
   PermissionsAndroid,
   Alert,
+  Modal,
+  TextInput,
+  Image,
 } from "react-native";
-import Constants from "expo-constants";
-import { Image } from "react-native";
+import * as Location from "expo-location";
+import * as ImagePicker from "expo-image-picker"; // Import image picker
+import { db, storage } from "../firebaseConfig"; // Import Firestore and Storage
+import { collection, addDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // Dynamic import variables for maps
 let MapView, Marker;
 
-// For web maps (using react-leaflet) - Only load for the web platform
+// For web maps (using react-leaflet)
 let MapContainer, TileLayer, useMapEvents, L;
 
 if (Platform.OS === "web") {
@@ -29,8 +35,12 @@ if (Platform.OS === "web") {
 
 export default function MapScreen() {
   const [selectedLocation, setSelectedLocation] = useState(null);
+  const [currentLocation, setCurrentLocation] = useState(null);
   const [locationData, setLocationData] = useState(null);
   const [mapLoaded, setMapLoaded] = useState(false); // State to track if MapView is loaded for mobile
+  const [modalVisible, setModalVisible] = useState(false); // State for modal visibility
+  const [description, setDescription] = useState(""); // Post description
+  const [image, setImage] = useState(null); // Image state for selected photo
 
   // Fetch geolocation data using Nominatim API
   const fetchLocationData = async (lat, lng) => {
@@ -53,29 +63,61 @@ export default function MapScreen() {
     }
   };
 
-  // Request location permissions for Android
+  // Request location permissions for Android and Web
   const requestLocationPermission = async () => {
     try {
-      if (Platform.OS === "android") {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: "Location Permission",
-            message: "This app needs to access your location",
-            buttonNeutral: "Ask Me Later",
-            buttonNegative: "Cancel",
-            buttonPositive: "OK",
-          }
-        );
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+      if (Platform.OS === "android" || Platform.OS === "ios") {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
           Alert.alert(
             "Permission Denied",
             "Location permission is required to display the map."
           );
+          return;
         }
+        getCurrentLocationMobile(); // Get current location for mobile devices
+      } else {
+        getCurrentLocationWeb(); // Get current location for web browsers
       }
     } catch (err) {
       console.warn(err);
+    }
+  };
+
+  // Get current location using expo-location for mobile
+  const getCurrentLocationMobile = async () => {
+    try {
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      const { latitude, longitude } = location.coords;
+      setCurrentLocation({ latitude, longitude });
+      setSelectedLocation({ latitude, longitude });
+      fetchLocationData(latitude, longitude);
+    } catch (error) {
+      Alert.alert("Error", "Unable to fetch location");
+      console.error(error);
+    }
+  };
+
+  // Get current location using the geolocation API for web
+  const getCurrentLocationWeb = () => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setCurrentLocation({ latitude, longitude });
+          setSelectedLocation({ latitude, longitude });
+          fetchLocationData(latitude, longitude);
+        },
+        (error) => {
+          Alert.alert("Error", "Unable to fetch location");
+          console.error(error);
+        },
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 }
+      );
+    } else {
+      Alert.alert("Error", "Geolocation is not supported by your browser");
     }
   };
 
@@ -88,6 +130,8 @@ export default function MapScreen() {
         requestLocationPermission(); // Request permission on mobile load
         setMapLoaded(true); // Mark map as loaded
       });
+    } else {
+      requestLocationPermission(); // Web: request current location
     }
   }, []);
 
@@ -96,6 +140,76 @@ export default function MapScreen() {
     const { latitude, longitude } = event.nativeEvent.coordinate;
     setSelectedLocation({ latitude, longitude });
     fetchLocationData(latitude, longitude);
+  };
+
+  // Handle image selection
+  const handlePickImage = async () => {
+    if (Platform.OS === "web") {
+      // For web, use the HTML file input
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.onchange = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            setImage(reader.result); // Set the image as base64 URL
+          };
+          reader.readAsDataURL(file); // Read the file as a Data URL
+        }
+      };
+      input.click();
+    } else {
+      // For mobile (iOS and Android), use expo-image-picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        setImage(result.assets[0].uri); // Set the image URI correctly
+      }
+    }
+  };
+
+  // Handle creating a new post
+  const handleCreatePost = async () => {
+    if (description && image && selectedLocation) {
+      try {
+        // Upload image to Firebase Storage
+        const imageName = `images/${Date.now()}-${Math.random()
+          .toString(36)
+          .substring(7)}.jpg`;
+        const imageRef = ref(storage, imageName);
+        const img = await fetch(image);
+        const bytes = await img.blob();
+        await uploadBytes(imageRef, bytes);
+
+        // Get the download URL after upload
+        const imageUrl = await getDownloadURL(imageRef);
+
+        // Add the post with the selected location and uploaded image URL
+        await addDoc(collection(db, "posts"), {
+          location: locationData.address || "Unknown Location",
+          description,
+          imageUrl,
+          latitude: selectedLocation.latitude,
+          longitude: selectedLocation.longitude,
+        });
+        Alert.alert("Success", "Post added successfully!");
+        setModalVisible(false); // Close modal after adding post
+        setDescription(""); // Reset input fields
+        setImage(null);
+      } catch (error) {
+        Alert.alert("Error", "Failed to add post");
+        console.error("Error adding post: ", error);
+      }
+    } else {
+      Alert.alert("Error", "All fields are required");
+    }
   };
 
   return (
@@ -108,8 +222,8 @@ export default function MapScreen() {
               {locationData.city}, {locationData.country}
             </Text>
             <Text style={styles.subtitle}>{locationData.address}</Text>
-            {/* Only show post button when location is selected */}
-            <Button title="Post" onPress={() => alert("Post button clicked")} />
+            {/* Show post button */}
+            <Button title="Post" onPress={() => setModalVisible(true)} />
           </>
         ) : (
           <Text>Select a location on the map to view details</Text>
@@ -123,9 +237,8 @@ export default function MapScreen() {
         }
       >
         {Platform.OS === "web" ? (
-          // Web version using react-leaflet
           <MapContainer
-            center={[37.7749, -122.4194]}
+            center={currentLocation || [37.7749, -122.4194]}
             zoom={13}
             style={styles.map}
           >
@@ -140,9 +253,9 @@ export default function MapScreen() {
                   selectedLocation.longitude,
                 ]}
                 icon={L.icon({
-                  iconUrl: "/assets/map.png", // Web: Use a relative path from the root directory for web
-                  iconSize: [38, 38], // Size of the icon
-                  iconAnchor: [19, 38], // Anchor point of the icon
+                  iconUrl: "/assets/map.png",
+                  iconSize: [38, 38],
+                  iconAnchor: [19, 38],
                 })}
               />
             )}
@@ -152,25 +265,28 @@ export default function MapScreen() {
             />
           </MapContainer>
         ) : (
-          // Mobile version using react-native-maps
           mapLoaded &&
           MapView && (
             <View style={styles.mapContainer}>
               <MapView
                 style={styles.mapMobile}
-                initialRegion={{
-                  latitude: 37.7749,
-                  longitude: -122.4194,
-                  latitudeDelta: 0.0922,
-                  longitudeDelta: 0.0421,
-                }}
+                region={
+                  currentLocation
+                    ? {
+                        latitude: currentLocation.latitude,
+                        longitude: currentLocation.longitude,
+                        latitudeDelta: 0.0922,
+                        longitudeDelta: 0.0421,
+                      }
+                    : undefined
+                }
                 onPress={onMapPress}
               >
                 {selectedLocation && (
                   <Marker coordinate={selectedLocation}>
                     <Image
                       source={require("../../assets/map.png")}
-                      style={{ width: 30, height: 30 }} // Adjust width and height here
+                      style={{ width: 30, height: 30 }}
                     />
                   </Marker>
                 )}
@@ -179,6 +295,33 @@ export default function MapScreen() {
           )
         )}
       </View>
+
+      {/* Modal for creating a new post */}
+      <Modal visible={modalVisible} animationType="slide">
+        <View style={styles.modalContainer}>
+          <Text style={styles.modalTitle}>Create a Post</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Description"
+            value={description}
+            onChangeText={setDescription}
+          />
+          <Button title="Pick an Image" onPress={handlePickImage} />
+          {image && (
+            <Image
+              source={{ uri: image }} // Use the `image` state which is either a base64 string (web) or URI (mobile)
+              style={{ width: 100, height: 100 }} // Adjust width and height to match your layout
+            />
+          )}
+
+          <Button title="Submit Post" onPress={handleCreatePost} />
+          <Button
+            title="Cancel"
+            onPress={() => setModalVisible(false)}
+            color="red"
+          />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -197,42 +340,52 @@ const MapClickHandler = ({ setSelectedLocation, fetchLocationData }) => {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: Platform.OS === "web" ? "row" : "column", // Web: row, Mobile: column
+    flexDirection: Platform.OS === "web" ? "row" : "column",
     flex: 1,
   },
   topContainer: {
-    flex: 1, // Top half for details (mobile)
+    flex: 1,
     padding: 20,
     justifyContent: "center",
   },
   rightContainer: {
-    flex: 1, // Full map on the right for web
+    flex: 1,
     height: "100%",
   },
   bottomContainer: {
-    flex: 1, // Bottom half for mobile map
-    justifyContent: "center", // Ensure the map is centered
+    flex: 1,
+    justifyContent: "center",
   },
   map: {
     width: "100%",
     height: "100%",
   },
   mapMobile: {
-    width: Dimensions.get("window").width, // Ensure map covers full width
-    height: Dimensions.get("window").height / 2, // Take half of the screen height
+    width: Dimensions.get("window").width,
+    height: Dimensions.get("window").height / 2,
   },
   mapContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  title: {
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalTitle: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 10,
+    marginBottom: 20,
   },
-  subtitle: {
-    fontSize: 16,
+  input: {
+    width: "100%",
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
     marginBottom: 20,
   },
 });

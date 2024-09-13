@@ -34,3 +34,54 @@ Dot Environment:
 npm install react-native-dotenv
 
 ```
+
+Install Expo location for Mobile support:
+
+```bash
+expo install expo-location
+```
+
+Installing Firebase for Authentication and Storing User's Post:
+
+```bash
+npm install firebase
+
+```
+
+Installing Image Picker for Users to pick image from gallery:
+
+```bash
+expo install expo-image-picker
+```
+
+Installing Stack Navigation and oher aditional dependencies:
+
+```bash
+npm install @react-navigation/stack
+```
+
+installing Navigation:
+
+```bash
+npm install @react-navigation/native
+npm install @react-navigation/stack
+npm install @react-navigation/bottom-tabs
+npm install react-native-screens react-native-safe-area-context
+```
+
+```bash
+npm install react-native-gesture-handler react-native-reanimated react-native-screens react-native-safe-area-context @react-native-community/masked-view
+```
+
+linking the dependencies:
+
+```bash
+npx expo install react-native-gesture-handler react-native-reanimated react-native-screens react-native-safe-area-context @react-native-community/masked-view
+```
+
+Install Firebase asnc o prersis User Sessions:
+
+```bash
+npm install @react-native-async-storage/async-storage
+
+```
