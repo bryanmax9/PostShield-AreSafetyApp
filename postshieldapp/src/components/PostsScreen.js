@@ -93,6 +93,7 @@ export default function PostsScreen() {
         <TextInput
           style={styles.searchInput}
           placeholder="Search posts by location or description..."
+          placeholderTextColor="#999"
           value={searchText}
           onChangeText={setSearchText}
         />
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: Platform.OS === "web" ? 20 : 10,
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#f4e5c4",
   },
   searchContainer: {
     flexDirection: "row",

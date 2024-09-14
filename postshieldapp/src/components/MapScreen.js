@@ -6,7 +6,7 @@ import {
   Text,
   Button,
   Dimensions,
-  PermissionsAndroid,
+  TouchableOpacity,
   Alert,
   Modal,
   TextInput,
@@ -15,7 +15,6 @@ import {
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker"; // Import image picker
 import { db, storage } from "../firebaseConfig"; // Import Firestore and Storage
-import { collection, addDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getAuth } from "firebase/auth"; // Import Firebase Auth
 import { doc, updateDoc, arrayUnion } from "firebase/firestore"; // For updating Firestore
@@ -176,6 +175,16 @@ export default function MapScreen() {
       }
     }
   };
+  const CustomButton = ({ title, onPress, backgroundColor, textColor }) => (
+    <TouchableOpacity
+      style={[styles.button, { backgroundColor: backgroundColor || "#2D3E3E" }]} // Default background color
+      onPress={onPress}
+    >
+      <Text style={[styles.buttonText, { color: textColor || "#fff" }]}>
+        {title}
+      </Text>
+    </TouchableOpacity>
+  );
 
   // Handle creating a new post for the signed-in user
   const handleCreatePost = async () => {
@@ -240,7 +249,12 @@ export default function MapScreen() {
             </Text>
             <Text style={styles.subtitle}>{locationData.address}</Text>
             {/* Show post button */}
-            <Button title="Post" onPress={() => setModalVisible(true)} />
+            <CustomButton
+              title="Post"
+              onPress={() => setModalVisible(true)}
+              backgroundColor="#2D3E3E"
+              textColor="#E9D8A6" // Beige text color
+            />
           </>
         ) : (
           <Text>Select a location on the map to view details</Text>
@@ -319,11 +333,17 @@ export default function MapScreen() {
           <Text style={styles.modalTitle}>Create a Post</Text>
           <TextInput
             style={styles.input}
-            placeholder="Description"
             value={description}
+            placeholder="Describe your Experience!"
+            placeholderTextColor="#999"
             onChangeText={setDescription}
           />
-          <Button title="Pick an Image" onPress={handlePickImage} />
+          <CustomButton
+            title="Pick an Image"
+            onPress={handlePickImage}
+            backgroundColor="#4CAF50" // Green button
+          />
+
           {image && (
             <Image
               source={{ uri: image }} // Use the `image` state which is either a base64 string (web) or URI (mobile)
@@ -331,11 +351,16 @@ export default function MapScreen() {
             />
           )}
 
-          <Button title="Submit Post" onPress={handleCreatePost} />
-          <Button
+          <CustomButton
+            title="Submit Post"
+            onPress={handleCreatePost}
+            backgroundColor="#2D3E3E"
+            textColor="#E9D8A6"
+          />
+          <CustomButton
             title="Cancel"
             onPress={() => setModalVisible(false)}
-            color="red"
+            backgroundColor="#FF6347" // Red cancel button
           />
         </View>
       </Modal>
@@ -359,6 +384,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: Platform.OS === "web" ? "row" : "column",
     flex: 1,
+    backgroundColor: "#f4e5c4",
   },
   topContainer: {
     flex: 1,
@@ -387,6 +413,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalContainer: {
+    backgroundColor: "#f4e5c4",
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
@@ -401,8 +428,23 @@ const styles = StyleSheet.create({
     width: "100%",
     padding: 10,
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 5,
+    borderColor: "#2D3E3E", // Darker border for better visibility
+    backgroundColor: "#fff", // White background for contrast
+    borderRadius: 10, // Slightly more rounded corners
+    color: "#333", // Dark text color
+    fontSize: 16, // Slightly larger font size
     marginBottom: 20,
+    placeholderTextColor: "#999", // Light gray placeholder for visibility
+  },
+  button: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginTop: 10,
+    alignItems: "center",
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });

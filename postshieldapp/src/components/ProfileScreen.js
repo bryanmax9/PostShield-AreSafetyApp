@@ -9,6 +9,7 @@ import {
   Button,
   Alert,
   Platform,
+  TouchableOpacity,
 } from "react-native";
 import { auth, db } from "../firebaseConfig"; // Import Firebase auth and Firestore
 import { signOutUser } from "../authService"; // Import the sign out function
@@ -104,7 +105,7 @@ export default function ProfileScreen({ navigation }) {
               <Button
                 title="Sign Out"
                 onPress={handleSignOut}
-                color="#0079d3"
+                color="#2D3E3E"
               />
 
               <View style={styles.divider} />
@@ -137,7 +138,7 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f4f4f4", // Light background for modern look
+    backgroundColor: "#f4e5c4",
     padding: 20,
   },
   profileContainer: {

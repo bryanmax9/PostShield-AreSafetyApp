@@ -62,8 +62,19 @@ export default function App() {
 
               return <Ionicons name={iconName} size={size} color={color} />;
             },
-            tabBarActiveTintColor: "tomato",
-            tabBarInactiveTintColor: "gray",
+            tabBarActiveTintColor: "#E9D8A6", // Beige color for active tab icons/text
+            tabBarInactiveTintColor: "#9CA3AF", // Gray color for inactive tabs
+            tabBarStyle: {
+              backgroundColor: "#2D3E3E", // Military green color for the tab bar background
+              borderTopColor: "#2D3E3E", // Ensure no border or matching border color
+            },
+            headerStyle: {
+              backgroundColor: "#2D3E3E", // Military green color for the header
+            },
+            headerTintColor: "#E9D8A6", // Beige color for the text/icons in the header
+            headerTitleStyle: {
+              fontWeight: "bold", // Make the text bold
+            },
           })}
         >
           <Tab.Screen name="Posts" component={PostsScreen} />
