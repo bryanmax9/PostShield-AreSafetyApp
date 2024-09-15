@@ -424,7 +424,7 @@ export default function MapScreen() {
           {image && (
             <Image
               source={{ uri: image }}
-              style={{ width: 100, height: 100 }}
+              style={{ width: 200, height: 200, marginTop: 8 }}
             />
           )}
 
@@ -457,6 +457,7 @@ const MapClickHandler = ({ setSelectedLocation, fetchLocationData }) => {
   return null;
 };
 
+const screenWidth = Dimensions.get("window").width;
 const styles = StyleSheet.create({
   container: {
     flexDirection: Platform.OS === "web" ? "row" : "column",
@@ -485,15 +486,25 @@ const styles = StyleSheet.create({
     height: Dimensions.get("window").height / 2,
   },
   crimeLevelContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
+    flexDirection: screenWidth < 400 ? "column" : "row", // Stack buttons vertically on smaller screens
+    justifyContent: screenWidth < 400 ? "center" : "space-around",
+    alignItems: "center", // Ensure buttons are centered in the container
     marginVertical: 10,
   },
   crimeLevelButton: {
     paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
+    marginHorizontal: screenWidth < 400 ? 0 : 10, // Smaller horizontal margin for small screens
+    marginVertical: screenWidth < 400 ? 5 : 0, // Add vertical margin for stacked buttons on small screens
     backgroundColor: "#ccc",
     borderRadius: 8,
+    minWidth: 120, // Ensure buttons have a consistent width for alignment
+    textAlign: "center", // Align text centrally
+  },
+  button: {
+    marginTop: 8,
+    borderRadius: 8,
+    padding: 5,
   },
   selectedButton: {
     backgroundColor: "#4CAF50",
