@@ -22,32 +22,52 @@ export default function PostsScreen() {
 
   // Fetch posts from Firestore
   const fetchPosts = async () => {
-    setLoading(true);
+    setLoading(true); // Show loading indicator
     try {
+      // Fetch all users from 'users' collection
       const usersCollection = collection(db, "users");
       const usersSnapshot = await getDocs(usersCollection);
 
       let allPosts = [];
+
+      // Loop through each user document
       usersSnapshot.forEach((userDoc) => {
         const userData = userDoc.data();
-        if (userData.posts && userData.posts.length > 0) {
+
+        // Log user data to console for debugging
+        console.log(`Data for user ${userDoc.id}:`, userData);
+
+        // Ensure the 'posts' array exists and has content
+        if (
+          userData.posts &&
+          Array.isArray(userData.posts) &&
+          userData.posts.length > 0
+        ) {
           userData.posts.forEach((post) => {
+            // Log each post data to console for debugging
+            console.log(`Post by ${userData.username}:`, post);
+
             allPosts.push({
-              id: `${userDoc.id}-${post.description}`, // Unique identifier
+              id: `${userDoc.id}-${post.description}`, // Consider adding a more reliable unique ID
               username: userData.username,
-              profileImageUrl: userData.profileImageUrl,
+              profileImageUrl:
+                userData.profileImageUrl || "default-profile-url",
               ...post,
             });
           });
         }
       });
 
-      setPosts(allPosts);
-      setFilteredPosts(allPosts); // Set the full list
+      setPosts(allPosts); // Update the posts state
+      setFilteredPosts(allPosts); // Set filtered posts to all posts initially
     } catch (error) {
-      console.error("Error fetching posts: ", error);
+      console.error("Error fetching posts from Firestore:", error);
+      Alert.alert(
+        "Fetch Error",
+        "Failed to fetch posts. Please try again later."
+      );
     } finally {
-      setLoading(false);
+      setLoading(false); // Hide loading indicator regardless of outcome
     }
   };
 

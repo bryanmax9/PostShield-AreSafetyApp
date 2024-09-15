@@ -4,7 +4,6 @@ import {
   Platform,
   StyleSheet,
   Text,
-  Button,
   Dimensions,
   TouchableOpacity,
   Alert,
@@ -13,24 +12,26 @@ import {
   Image,
 } from "react-native";
 import * as Location from "expo-location";
-import * as ImagePicker from "expo-image-picker"; // Import image picker
-import { db, storage } from "../firebaseConfig"; // Import Firestore and Storage
+import * as ImagePicker from "expo-image-picker";
+import { db, storage } from "../firebaseConfig";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { getAuth } from "firebase/auth"; // Import Firebase Auth
-import { doc, updateDoc, arrayUnion } from "firebase/firestore"; // For updating Firestore
+import { getAuth } from "firebase/auth";
+import {
+  doc,
+  updateDoc,
+  arrayUnion,
+  getDocs,
+  collection,
+} from "firebase/firestore";
 
-// Dynamic import variables for maps
-let MapView, Marker;
-
-// For web maps (using react-leaflet)
-let MapContainer, TileLayer, useMapEvents, L;
+let MapView, Marker, MapContainer, TileLayer, L, useMapEvents;
 
 if (Platform.OS === "web") {
   MapContainer = require("react-leaflet").MapContainer;
   TileLayer = require("react-leaflet").TileLayer;
   Marker = require("react-leaflet").Marker;
   useMapEvents = require("react-leaflet").useMapEvents;
-  L = require("leaflet"); // Import Leaflet for web
+  L = require("leaflet");
   require("leaflet/dist/leaflet.css");
 }
 
@@ -38,10 +39,12 @@ export default function MapScreen() {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [locationData, setLocationData] = useState(null);
-  const [mapLoaded, setMapLoaded] = useState(false); // State to track if MapView is loaded for mobile
-  const [modalVisible, setModalVisible] = useState(false); // State for modal visibility
-  const [description, setDescription] = useState(""); // Post description
-  const [image, setImage] = useState(null); // Image state for selected photo
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [description, setDescription] = useState("");
+  const [image, setImage] = useState(null);
+  const [crimeLevel, setCrimeLevel] = useState("");
+  const [averageCrimeLevel, setAverageCrimeLevel] = useState("Not enough data");
 
   // Fetch geolocation data using Nominatim API
   const fetchLocationData = async (lat, lng) => {
@@ -59,12 +62,54 @@ export default function MapScreen() {
         country,
         address,
       });
+
+      // Fetch posts for the selected location and calculate the average crime level
+      await fetchPostsForLocation(lat, lng);
     } catch (error) {
       console.error("Error fetching location data:", error);
     }
   };
 
-  // Request location permissions for Android and Web
+  // Fetch posts for the selected location and calculate average crime level
+  const fetchPostsForLocation = async (lat, lng) => {
+    try {
+      const postsRef = collection(db, "users");
+      const querySnapshot = await getDocs(postsRef);
+      let totalCrimeLevel = 0;
+      let totalPosts = 0;
+
+      querySnapshot.forEach((doc) => {
+        const posts = doc.data().posts || [];
+        posts.forEach((post) => {
+          const latDiff = Math.abs(post.latitude - lat) < 0.005;
+          const lngDiff = Math.abs(post.longitude - lng) < 0.005;
+
+          // Compare lat/lng with tolerance for precision
+          if (latDiff && lngDiff) {
+            totalPosts++;
+            console.log(`Post found at: ${post.latitude}, ${post.longitude}`);
+
+            if (post.crimeLevel === "low") totalCrimeLevel += 1;
+            else if (post.crimeLevel === "medium") totalCrimeLevel += 2;
+            else if (post.crimeLevel === "high") totalCrimeLevel += 3;
+          }
+        });
+      });
+
+      if (totalPosts > 0) {
+        const avg = totalCrimeLevel / totalPosts;
+        console.log(`Total Posts: ${totalPosts}, Average Crime Level: ${avg}`);
+        if (avg <= 1.3) setAverageCrimeLevel("low");
+        else if (avg <= 2.3) setAverageCrimeLevel("medium");
+        else setAverageCrimeLevel("high");
+      } else {
+        setAverageCrimeLevel("Not enough data");
+      }
+    } catch (error) {
+      console.error("Error fetching posts:", error);
+    }
+  };
+
   const requestLocationPermission = async () => {
     try {
       if (Platform.OS === "android" || Platform.OS === "ios") {
@@ -76,16 +121,15 @@ export default function MapScreen() {
           );
           return;
         }
-        getCurrentLocationMobile(); // Get current location for mobile devices
+        getCurrentLocationMobile();
       } else {
-        getCurrentLocationWeb(); // Get current location for web browsers
+        getCurrentLocationWeb();
       }
     } catch (err) {
       console.warn(err);
     }
   };
 
-  // Get current location using expo-location for mobile
   const getCurrentLocationMobile = async () => {
     try {
       const location = await Location.getCurrentPositionAsync({
@@ -101,7 +145,6 @@ export default function MapScreen() {
     }
   };
 
-  // Get current location using the geolocation API for web
   const getCurrentLocationWeb = () => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -122,31 +165,27 @@ export default function MapScreen() {
     }
   };
 
-  // Dynamically load react-native-maps only for mobile platforms
   useEffect(() => {
     if (Platform.OS !== "web") {
       import("react-native-maps").then((module) => {
         MapView = module.default;
         Marker = module.Marker;
-        requestLocationPermission(); // Request permission on mobile load
-        setMapLoaded(true); // Mark map as loaded
+        requestLocationPermission();
+        setMapLoaded(true);
       });
     } else {
-      requestLocationPermission(); // Web: request current location
+      requestLocationPermission();
     }
   }, []);
 
-  // Mobile map press handler
   const onMapPress = (event) => {
     const { latitude, longitude } = event.nativeEvent.coordinate;
     setSelectedLocation({ latitude, longitude });
     fetchLocationData(latitude, longitude);
   };
 
-  // Handle image selection
   const handlePickImage = async () => {
     if (Platform.OS === "web") {
-      // For web, use the HTML file input
       const input = document.createElement("input");
       input.type = "file";
       input.accept = "image/*";
@@ -155,14 +194,13 @@ export default function MapScreen() {
         if (file) {
           const reader = new FileReader();
           reader.onload = () => {
-            setImage(reader.result); // Set the image as base64 URL
+            setImage(reader.result);
           };
-          reader.readAsDataURL(file); // Read the file as a Data URL
+          reader.readAsDataURL(file);
         }
       };
       input.click();
     } else {
-      // For mobile (iOS and Android), use expo-image-picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -171,13 +209,14 @@ export default function MapScreen() {
       });
 
       if (!result.canceled) {
-        setImage(result.assets[0].uri); // Set the image URI correctly
+        setImage(result.assets[0].uri);
       }
     }
   };
+
   const CustomButton = ({ title, onPress, backgroundColor, textColor }) => (
     <TouchableOpacity
-      style={[styles.button, { backgroundColor: backgroundColor || "#2D3E3E" }]} // Default background color
+      style={[styles.button, { backgroundColor: backgroundColor || "#2D3E3E" }]}
       onPress={onPress}
     >
       <Text style={[styles.buttonText, { color: textColor || "#fff" }]}>
@@ -186,19 +225,19 @@ export default function MapScreen() {
     </TouchableOpacity>
   );
 
-  // Handle creating a new post for the signed-in user
   const handleCreatePost = async () => {
-    const auth = getAuth(); // Get Firebase Auth instance
-    const user = auth.currentUser; // Get the current user
+    const auth = getAuth();
+    const user = auth.currentUser;
 
     if (!user) {
       Alert.alert("Error", "No user is signed in");
       return;
     }
 
-    if (description && image && selectedLocation) {
+    if (description && image && selectedLocation && crimeLevel) {
       try {
-        // Upload image to Firebase Storage
+        console.log("Starting image upload...");
+
         const imageName = `images/${Date.now()}-${Math.random()
           .toString(36)
           .substring(7)}.jpg`;
@@ -207,30 +246,33 @@ export default function MapScreen() {
         const bytes = await img.blob();
         await uploadBytes(imageRef, bytes);
 
-        // Get the download URL after upload
         const imageUrl = await getDownloadURL(imageRef);
+        console.log("Image uploaded successfully, URL:", imageUrl);
 
-        // Prepare the post object
         const newPost = {
-          location: locationData.address || "Unknown Location",
+          location: locationData?.address || "Unknown Location",
           description,
           imageUrl,
           latitude: selectedLocation.latitude,
           longitude: selectedLocation.longitude,
+          crimeLevel,
         };
 
-        // Add the post to the authenticated user's 'posts' array in Firestore
+        console.log("Saving post to Firestore...");
         const userDoc = doc(db, "users", user.uid);
         await updateDoc(userDoc, {
-          posts: arrayUnion(newPost), // Append new post to the 'posts' array
+          posts: arrayUnion(newPost),
         });
 
         Alert.alert("Success", "Post added successfully!");
-        setModalVisible(false); // Close modal after adding post
-        setDescription(""); // Reset input fields
+        console.log("Post added successfully!");
+
+        setModalVisible(false);
+        setDescription("");
         setImage(null);
+        setCrimeLevel("");
       } catch (error) {
-        Alert.alert("Error", "Failed to add post");
+        Alert.alert("Error", "There was a problem posting. Please try again.");
         console.error("Error adding post: ", error);
       }
     } else {
@@ -240,7 +282,6 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top container for details */}
       <View style={styles.topContainer}>
         {locationData ? (
           <>
@@ -248,12 +289,21 @@ export default function MapScreen() {
               {locationData.city}, {locationData.country}
             </Text>
             <Text style={styles.subtitle}>{locationData.address}</Text>
-            {/* Show post button */}
+            <Text style={styles.crimeStatus}>
+              Crime Level:{" "}
+              {averageCrimeLevel === "low"
+                ? "Low (Green)"
+                : averageCrimeLevel === "medium"
+                ? "Medium (Yellow)"
+                : averageCrimeLevel === "high"
+                ? "High (Red)"
+                : "Not enough data"}
+            </Text>
             <CustomButton
               title="Post"
               onPress={() => setModalVisible(true)}
               backgroundColor="#2D3E3E"
-              textColor="#E9D8A6" // Beige text color
+              textColor="#E9D8A6"
             />
           </>
         ) : (
@@ -261,7 +311,6 @@ export default function MapScreen() {
         )}
       </View>
 
-      {/* Map container */}
       <View
         style={
           Platform.OS === "web" ? styles.rightContainer : styles.bottomContainer
@@ -298,36 +347,33 @@ export default function MapScreen() {
         ) : (
           mapLoaded &&
           MapView && (
-            <View style={styles.mapContainer}>
-              <MapView
-                style={styles.mapMobile}
-                region={
-                  currentLocation
-                    ? {
-                        latitude: currentLocation.latitude,
-                        longitude: currentLocation.longitude,
-                        latitudeDelta: 0.0922,
-                        longitudeDelta: 0.0421,
-                      }
-                    : undefined
-                }
-                onPress={onMapPress}
-              >
-                {selectedLocation && (
-                  <Marker coordinate={selectedLocation}>
-                    <Image
-                      source={require("../../assets/map.png")}
-                      style={{ width: 30, height: 30 }}
-                    />
-                  </Marker>
-                )}
-              </MapView>
-            </View>
+            <MapView
+              style={styles.mapMobile}
+              region={
+                currentLocation
+                  ? {
+                      latitude: currentLocation.latitude,
+                      longitude: currentLocation.longitude,
+                      latitudeDelta: 0.0922,
+                      longitudeDelta: 0.0421,
+                    }
+                  : undefined
+              }
+              onPress={onMapPress}
+            >
+              {selectedLocation && (
+                <Marker coordinate={selectedLocation}>
+                  <Image
+                    source={require("../../assets/map.png")}
+                    style={{ width: 30, height: 30 }}
+                  />
+                </Marker>
+              )}
+            </MapView>
           )
         )}
       </View>
 
-      {/* Modal for creating a new post */}
       <Modal visible={modalVisible} animationType="slide">
         <View style={styles.modalContainer}>
           <Text style={styles.modalTitle}>Create a Post</Text>
@@ -338,16 +384,47 @@ export default function MapScreen() {
             placeholderTextColor="#999"
             onChangeText={setDescription}
           />
+          <Text style={styles.label}>Select Crime Level</Text>
+          <View style={styles.crimeLevelContainer}>
+            <TouchableOpacity
+              style={[
+                styles.crimeLevelButton,
+                crimeLevel === "low" && styles.selectedButton,
+              ]}
+              onPress={() => setCrimeLevel("low")}
+            >
+              <Text style={styles.buttonText}>Low (Green)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.crimeLevelButton,
+                crimeLevel === "medium" && styles.selectedButton,
+              ]}
+              onPress={() => setCrimeLevel("medium")}
+            >
+              <Text style={styles.buttonText}>Medium (Yellow)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.crimeLevelButton,
+                crimeLevel === "high" && styles.selectedButton,
+              ]}
+              onPress={() => setCrimeLevel("high")}
+            >
+              <Text style={styles.buttonText}>High (Red)</Text>
+            </TouchableOpacity>
+          </View>
+
           <CustomButton
             title="Pick an Image"
             onPress={handlePickImage}
-            backgroundColor="#4CAF50" // Green button
+            backgroundColor="#4CAF50"
           />
 
           {image && (
             <Image
-              source={{ uri: image }} // Use the `image` state which is either a base64 string (web) or URI (mobile)
-              style={{ width: 100, height: 100 }} // Adjust width and height to match your layout
+              source={{ uri: image }}
+              style={{ width: 100, height: 100 }}
             />
           )}
 
@@ -360,7 +437,7 @@ export default function MapScreen() {
           <CustomButton
             title="Cancel"
             onPress={() => setModalVisible(false)}
-            backgroundColor="#FF6347" // Red cancel button
+            backgroundColor="#FF6347"
           />
         </View>
       </Modal>
@@ -407,10 +484,28 @@ const styles = StyleSheet.create({
     width: Dimensions.get("window").width,
     height: Dimensions.get("window").height / 2,
   },
-  mapContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  crimeLevelContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginVertical: 10,
+  },
+  crimeLevelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: "#ccc",
+    borderRadius: 8,
+  },
+  selectedButton: {
+    backgroundColor: "#4CAF50",
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  crimeStatus: {
+    fontSize: 16,
+    marginTop: 10,
+    fontWeight: "bold",
   },
   modalContainer: {
     backgroundColor: "#f4e5c4",
@@ -428,23 +523,16 @@ const styles = StyleSheet.create({
     width: "100%",
     padding: 10,
     borderWidth: 1,
-    borderColor: "#2D3E3E", // Darker border for better visibility
-    backgroundColor: "#fff", // White background for contrast
-    borderRadius: 10, // Slightly more rounded corners
-    color: "#333", // Dark text color
-    fontSize: 16, // Slightly larger font size
-    marginBottom: 20,
-    placeholderTextColor: "#999", // Light gray placeholder for visibility
-  },
-  button: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    borderColor: "#2D3E3E",
+    backgroundColor: "#fff",
     borderRadius: 10,
-    marginTop: 10,
-    alignItems: "center",
+    marginBottom: 20,
+    color: "#333",
+    fontSize: 16,
   },
-  buttonText: {
+  label: {
     fontSize: 16,
     fontWeight: "bold",
+    marginBottom: 10,
   },
 });
