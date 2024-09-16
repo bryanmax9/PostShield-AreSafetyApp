@@ -1,6 +1,65 @@
-# PostShield-AreSafetyApp
-
+# PostShield
 📊🏙️Area Safety App - Check others opinion on areas before going around and get to know new Spots thorugh the App
+
+**PostShield** is a React Native application developed during the Headstarter fellowship. This app allows users to post about their current location, share experiences, and rate the area's safety based on the crime rate.
+
+## Features
+
+- **Map Integration**: Users can navigate the map and select a specific location or use their current location to create a post.
+- **Post Creation**: Users can add a description of their experience and select a crime rate (Low, Medium, High) for the chosen location.
+- **Crime Rate Calculation**: The app calculates an average crime rate based on user input and displays the overall safety of the area.
+- **Data Storage**: Posts, images, and user credentials are stored using Firebase, ensuring real-time data retrieval.
+- **Cross-Platform Compatibility**: The app is compatible with both mobile and web platforms, using MapView for mobile and Leaflet for web.
+- **Geolocation**: The app uses the Nominatim API to fetch the exact address, latitude, longitude, city, and country of the selected location.
+
+## Tech Stack
+
+- **React Native**: For developing cross-platform mobile and web applications.
+- **Firebase**: For storing images, user credentials, and location data.
+- **Nominatim API**: To get the exact address, latitude, longitude, city, and country for each post.
+- **MapView (React Native)**: For mobile map integration.
+- **Leaflet**: For web map integration.
+
+## Crime Rate Calculation (Will be Improved as Projec Scales)
+
+Crime rate is calculated using the following logic:
+
+1. Users select the crime rate as Low (1), Medium (2), or High (3).
+2. The app aggregates crime ratings from all users for a specific location.
+3. The average crime rate is calculated using the formula:
+
+```bash
+(Low * 1 + Medium * 2 + High * 3) / Total Number of Posts
+```
+
+For example, if 3 users select Low and 2 users select Medium:
+
+```bash
+(3 * 1) + (2 * 2) = 7
+7 / 5 = 1.4, rounded down to 1 (Safe)
+```
+
+## Setup and Try App
+
+1. Clone the repository:
+
+```bash
+git clone git@github.com:bryanmax9/PostShield-AreSafetyApp.git
+```
+
+2. cd to he project:
+
+```bash
+cd .\postshieldapp\
+```
+
+3. run:
+
+```bash
+npx expo start
+```
+
+## Required Dependencies to Install
 
 Install MapBox
 
@@ -91,3 +150,6 @@ Installing Icons for UI of the WebApp:
 ```bash
 npm install react-native-vector-icons
 ```
+
+## Video DEMO
+
