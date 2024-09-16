@@ -150,6 +150,25 @@ Installing Icons for UI of the WebApp:
 ```bash
 npm install react-native-vector-icons
 ```
+## Preview
 
 ## Video DEMO
 
+Link: https://youtu.be/qF11MJygyGs
+
+
+## Usage
+
+1. Open the app and navigate the map.
+2. Select a location or use your current location to create a post.
+3. Add details about your experience in the selected location.
+4. Choose a crime rate for the location: Low, Medium, or High.
+5. Submit the post and view crime statistics based on other users' posts.
+6. Explore posts from others by navigating the map and selecting pins to see detailed reports and crime rate data.
+
+## Future Improvements
+
+- Advanced crime rate calculation based on a larger user base and more detailed input.
+- Additional features like user comments, post reactions, and real-time notifications for high-crime areas.
+- Performance improvements for handling larger datasets and enhanced map functionality.
+- Improved map UI with location clustering for high-post areas.
