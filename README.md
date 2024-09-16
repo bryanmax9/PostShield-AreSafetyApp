@@ -152,13 +152,13 @@ npm install react-native-vector-icons
 ```
 ## Preview
 
-![app1](https://github.com/user-attachments/assets/f93d9f11-dc11-4460-a072-b3befe98d448)
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/f93d9f11-dc11-4460-a072-b3befe98d448" alt="app1" width="200" height="400">
+  <img src="https://github.com/user-attachments/assets/553f4098-ddcf-4469-bc7f-f1c0d6197afc" alt="app2" width="200" height="400">
+  <img src="https://github.com/user-attachments/assets/49eeb51d-5aa8-4f30-a82e-966968d950e1" alt="app3" width="200" height="400">
+  <img src="https://github.com/user-attachments/assets/6aa9fbb1-1e31-4624-ad84-4e6945c09470" alt="app4" width="200" height="400">
+</p>
 
-![app2](https://github.com/user-attachments/assets/553f4098-ddcf-4469-bc7f-f1c0d6197afc)
-
-![app3](https://github.com/user-attachments/assets/49eeb51d-5aa8-4f30-a82e-966968d950e1)
-
-![app4](https://github.com/user-attachments/assets/6aa9fbb1-1e31-4624-ad84-4e6945c09470)
 
 
 ## Video DEMO
